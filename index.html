@@ -1,0 +1,1922 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>本棚整理から分かるAI性格診断</title>
+    <style>
+        :root {
+            --bg: #0b0d12;
+            --panel: #121628;
+            --panel2: #0f1323;
+            --text: #e8ecff;
+            --muted: #aab2d6;
+            --accent: #7aa2ff;
+            --accent2: #8dffb5;
+            --danger: #ff6b7a;
+            --radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "YuGothic", sans-serif;
+            background: radial-gradient(1000px 600px at 20% 0%, #12183a, var(--bg));
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 18px 14px 60px;
+            position: relative;
+            /* ensure UI is above transient overlays */
+            /* z-index: 10; */
+        }
+
+        /* Ensure host buttons are clickable above other transient elements during debugging */
+        #genBtn {
+            position: relative;
+            z-index: 1000;
+            pointer-events: auto;
+        }
+
+        .game-loading {
+            pointer-events: none;
+            user-select: none;
+            opacity: 0.95;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .brand {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            box-shadow: 0 0 18px rgba(122, 162, 255, .55);
+        }
+
+        .h1 {
+            font-weight: 800;
+            letter-spacing: .02em;
+        }
+
+        .pill {
+            font-size: 12px;
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 999px;
+            color: var(--muted);
+            background: rgba(0, 0, 0, .15);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.05fr 1.05fr;
+            gap: 14px;
+            margin-top: 12px;
+        }
+
+        .grid.top-grid {
+            margin-top: 0;
+            margin-bottom: 14px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .03));
+            border: 1px solid rgba(255, 255, 255, .10);
+            border-radius: var(--radius);
+            padding: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+        }
+
+        .card h2 {
+            margin: 0 0 10px;
+            font-size: 16px;
+            color: #f2f4ff;
+        }
+
+        .desc {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 6px 0 12px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 10px;
+            margin: 10px 0;
+            align-items: center;
+        }
+
+        .row label {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        select,
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, .14);
+            background: rgba(0, 0, 0, .25);
+            color: var(--text);
+            outline: none;
+        }
+
+        .btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 14px;
+            padding: 10px 14px;
+            font-weight: 700;
+            color: #0b0d12;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            cursor: pointer;
+        }
+
+        button.secondary {
+            background: rgba(255, 255, 255, .08);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, .12);
+        }
+
+        button.ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px dashed rgba(255, 255, 255, .18);
+        }
+
+        .fade-in {
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity .4s ease, transform .4s ease;
+        }
+
+        .fade-in.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .out {
+            background: rgba(0, 0, 0, .25);
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 14px;
+            padding: 12px;
+            margin-top: 12px;
+            word-break: break-all;
+            color: #eaf0ff;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .out.prewrap {
+            white-space: pre-wrap;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Noto Sans Mono", monospace;
+        }
+
+        /* Play UI */
+        #playView {
+            display: none;
+        }
+
+        .playTop {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .status {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(0, 0, 0, .22);
+            color: var(--muted);
+        }
+
+        .bar {
+            width: 220px;
+            height: 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(0, 0, 0, .20);
+            overflow: hidden;
+        }
+
+        .bar>i {
+            display: block;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+        }
+
+        #gameWrap {
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(0, 0, 0, .25);
+        }
+
+        /* Ensure the game container has a sensible minimum size */
+        #game {
+            min-height: 620px;
+            height: auto;
+            /* explicit height avoids 0px collapses */
+            width: 100%;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* DOM-based bookshelf game styles */
+        .bookshelf-game {
+            display: flex;
+            gap: 16px;
+            width: 100%;
+            padding: 12px;
+        }
+
+        .bookshelf-game .init-col {
+            width: 240px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            justify-content: center;
+            gap: 8px;
+            max-height: 600px;
+            overflow: auto;
+        }
+
+        .bookshelf-game .init-col .book {
+            margin: 0 !important;
+        }
+
+        .bookshelf-game .grid-col {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .bookshelf-game .rotate-col {
+            width: 90px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding-top: 10px;
+        }
+
+        .bookshelf-game .rotate-col button {
+            width: 100%;
+        }
+
+        .diag-btn {
+            position: static;
+            z-index: 5;
+            margin-top: 12px;
+            padding: 14px 18px;
+            font-size: 15px;
+            border-radius: 16px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+            width: 100%;
+            max-width: 360px;
+            background: linear-gradient(135deg, #ffb26a, #ff6b7a);
+            color: #121628;
+        }
+
+        .grid-root {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-position: 0 0, 0 0;
+            background-repeat: repeat;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .book {
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 8px rgba(0, 0, 0, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 700;
+            user-select: none;
+            touch-action: none;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .book::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 14px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(0, 0, 0, 0.15));
+            border-right: 1px solid rgba(0, 0, 0, 0.25);
+            opacity: 0.6;
+        }
+
+        .book[data-rot="1"]::before {
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: auto;
+            width: auto;
+            height: 14px;
+            border-right: 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+        }
+
+        .book[data-rot="2"]::before {
+            left: auto;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 14px;
+            height: auto;
+            border-right: 0;
+            border-left: 1px solid rgba(0, 0, 0, 0.25);
+        }
+
+        .book[data-rot="3"]::before {
+            left: 0;
+            right: 0;
+            top: auto;
+            bottom: 0;
+            width: auto;
+            height: 14px;
+            border-right: 0;
+            border-top: 1px solid rgba(0, 0, 0, 0.25);
+        }
+
+        .book::after {
+            content: "";
+            position: absolute;
+            inset: 6px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .book.red {
+            background: linear-gradient(180deg, #ff8a9b, #ff3a52);
+        }
+
+        .book.blue {
+            background: linear-gradient(180deg, #97b6ff, #4b87ff);
+        }
+
+        .book.green {
+            background: linear-gradient(180deg, #a6ffca, #45e58e);
+        }
+
+        .book.selected {
+            outline: 3px solid rgba(255, 255, 255, 0.7);
+            outline-offset: 2px;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 12px 28px rgba(0, 0, 0, 0.45);
+        }
+
+        .placement-hint {
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, .85);
+            padding: 18px;
+            z-index: 20000;
+        }
+
+        .overlay .modal {
+            width: min(860px, 100%);
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .04));
+            border: 1px solid rgba(255, 255, 255, .14);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+            padding: 16px;
+        }
+
+        .modal h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+        }
+
+        .modal .text {
+            white-space: pre-line;
+            line-height: 1.7;
+            color: #eef2ff;
+            font-size: 14px;
+            background: rgba(0, 0, 0, .20);
+            border: 1px solid rgba(255, 255, 255, .10);
+            border-radius: 14px;
+            padding: 12px;
+            min-height: 180px;
+        }
+
+        .modal .sub {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        .right {
+            margin-left: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        try {
+            console.log('sanity: inline script OK');
+            const _el = document.createElement('div');
+            _el.id = 'sanity-js-indicator';
+            _el.style.position = 'fixed';
+            _el.style.right = '12px';
+            _el.style.bottom = '12px';
+            _el.style.zIndex = 99999;
+            _el.style.background = 'rgba(0,200,150,0.12)';
+            _el.style.color = '#bfffdc';
+            _el.style.padding = '6px 8px';
+            _el.style.borderRadius = '6px';
+            _el.style.fontSize = '12px';
+            _el.textContent = 'JS OK';
+            document.body && document.body.appendChild(_el);
+        } catch (e) {
+            console.error('sanity failure', e);
+        }
+    </script>
+    <script>
+        window.addEventListener("error", function (e) {
+            // Show alert for script errors to help debugging user environment
+            const msg = "Script Error: " + e.message + "\nLine: " + e.lineno;
+            console.error(msg);
+
+            const el = document.createElement('div');
+            el.style.position = 'fixed';
+            el.style.bottom = '0';
+            el.style.left = '0';
+            el.style.width = '100%';
+            el.style.background = 'rgba(255, 0, 0, 0.9)';
+            el.style.color = 'white';
+            el.style.padding = '8px';
+            el.style.fontSize = '12px';
+            el.style.zIndex = '100000';
+            el.style.pointerEvents = 'none';
+            el.textContent = msg;
+            document.body.appendChild(el);
+        });
+    </script>
+    <div class="wrap">
+        <div class="topbar">
+            <div class="brand">
+                <div class="dot"></div>
+                <div>
+                    <div class="h1">本棚整理から分かるAI性格診断</div>
+                </div>
+            </div>
+            <div class="pill mono" id="routePill">#host</div>
+        </div>
+
+        <!-- HOST VIEW -->
+        <div id="hostView">
+            <div class="grid top-grid">
+                <div class="card">
+                    <h2>概要</h2>
+                    <div class="desc">
+                        AI診断風のジョークコンテンツです。送る相手に合わせた分析結果を選んで、相手をビックリさせましょう。
+                    </div>
+                    <div class="out">
+                        <div><b>用途：</b>友人や家族向けの“遊び診断”</div>
+                        <div style="margin-top:8px;"><b>共有方法：</b>生成したURLを送るだけ</div>
+                        <div style="margin-top:8px;"><b>所要時間：</b>1~2分程度</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>診断の流れ（相手側）</h2>
+                    <div class="desc">
+                        相手側は下記のフローに従って診断を受けます。
+                    </div>
+
+                    <div class="out">
+                        <div><b>ミニパズル：</b>本を棚に並べる（ドラッグ＆ドロップ）</div>
+                        <div style="margin-top:8px;"><b>解析演出：</b>分析風の演出を行う</div>
+                        <div style="margin-top:8px;"><b>結果：</b>選んだ文章を表示</div>
+                        <div style="margin-top:8px;"><b>ネタバラシ：</b>実はあなたが選んだ文章でした。</div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h2>ホスト（しかける側）</h2>
+                    <div class="desc">
+                        しかける相手に合わせて選択肢を選んでください。その後コード生成をを押して、ファイルとURLを共有すると、相手がジョーク診断を受けられます。
+                    </div>
+
+                    <div class="row">
+                        <label>診断結果のタイプ</label>
+                        <select id="tone"></select>
+                    </div>
+                    <div class="row">
+                        <label>強み</label>
+                        <select id="strength"></select>
+                    </div>
+                    <div class="row">
+                        <label>弱み</label>
+                        <select id="state"></select>
+                    </div>
+                    <div class="row">
+                        <label>傾向</label>
+                        <select id="relation"></select>
+                    </div>
+                    <div class="row">
+                        <label>年齢</label>
+                        <select id="wordA"></select>
+                    </div>
+                    <div class="row">
+                        <label>好きな食べ物</label>
+                        <select id="wordB"></select>
+                    </div>
+
+                    <div class="btns">
+                        <button id="genBtn">コード生成</button>
+                        <button class="secondary" id="copyBtn" disabled>URLコピー</button>
+                        <button class="ghost right" id="goPlayBtn" disabled>この端末で試す</button>
+                    </div>
+
+                    <div class="out mono" id="shareOut">ここにURLが出ます</div>
+
+                    <!-- <div class="btns">
+                        <button class="ghost" id="diagBtnHost">診断レポート</button>
+                        <button class="ghost" id="reinitBtnHost">再初期化</button>
+                    </div> -->
+                </div>
+
+                <div class="card" id="previewCard">
+                    <h2>選択中の文書プレビュー</h2>
+                    <div class="desc">
+                        いま選んでいる内容から生成される文書をリアルタイムで表示します。
+                    </div>
+                    <div class="out prewrap" id="previewOut">ここにプレビューが表示されます</div>
+                    <div class="hint">※コード生成時はランダム要素が入るため、文面が少し変わる場合があります。</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLAY VIEW -->
+        <div id="playView">
+            <div class="card" style="margin-bottom:14px;">
+                <div class="playTop">
+                    <div>
+                        <h2 style="margin:0 0 6px;">本棚整理から分かるAI性格診断</h2>
+                        <div class="desc" style="margin:0;">
+                            ロールシャッハ・テストやバウムテストからインスピレーションを受けた、AI診断です。<br>あなたの本の整理の仕方を元にAIが分析して性格診断を行います。
+                            <h2 style="margin:12px 0 6px;">遊び方</h2>
+                            左にある本をドラッグ＆ドロップで右のグリッド(本棚)に自由に並べてください。<br />
+                            自分が心地よいと思うように本を配置しましょう。
+                            <br />
+                            並べ終わったら、右の診断結果を見るボタンを押して下さい。
+                            <h2 style="margin:12px 0 6px;">操作方法</h2>
+                            本の移動：ドラッグ＆ドロップ<br />
+                            本の回転：本を選択して、回転ボタンを押す<br />
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="gameWrap" class="card" style="padding:0;">
+                <div id="game"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- RESULT OVERLAY -->
+    <div class="overlay" id="overlay">
+        <div class="modal">
+            <h3 id="ovTitle">解析中…</h3>
+            <div class="text" id="ovText">しばらくお待ちください。</div>
+            <div class="btns" style="margin-top:12px;">
+                <button class="secondary fade-in" id="revealBtn" style="display:none;">ネタバレへ進む</button>
+                <button class="secondary fade-in" id="toHostBtn" style="display:none;">ホスト画面へ</button>
+                <button class="secondary right" id="closeBtn" style="display:none;">閉じる</button>
+            </div>
+            <div class="sub" id="ovSub"></div>
+        </div>
+    </div>
+
+    <!-- Phaser removed: using DOM-based bookshelf implementation -->
+
+    <script>
+        'use strict';
+        /********************
+         * Data (Host choices)
+         ********************/
+        const TONES = [
+            "安定志向タイプ",
+            "成長加速タイプ",
+            "分析重視タイプ",
+            "協調性重視タイプ",
+            "関係重視タイプ",
+            "挑戦推進タイプ"
+        ];
+        const STRENGTHS = ["計画性", "実行力", "観察力", "調整力", "継続力", "判断力"];
+        const STATES = ["慎重すぎる", "視野が狭い", "完璧主義", "優柔不断", "頑固", "飽きやすい"];
+        const RELATIONS = ["論理優先", "直感優先", "協調優先", "独立優先", "慎重優先", "挑戦優先"];
+
+        const AGE16 = [
+            "10代", "20歳", "21〜25歳", "26〜30歳",
+            "31〜35歳", "36〜40歳", "41〜45歳", "46〜50歳",
+            "51〜55歳", "56〜60歳", "61〜65歳", "66〜70歳",
+            "71〜75歳", "76〜80歳", "81〜85歳", "86歳以上"
+        ];
+
+        const FOOD16 = [
+            "カレー", "寿司", "ラーメン", "焼肉",
+            "パスタ", "ハンバーガー", "ピザ", "唐揚げ",
+            "餃子", "鍋料理", "お好み焼き", "スイーツ",
+            "サラダ", "パン", "丼もの", "和菓子"
+        ];
+
+        // 9 segments, each 6 variants — expanded into diagnostic-style paragraphs (SNS Friendly Ver)
+        const SEG = {
+            intro: [
+                "👑【基本性格】\n全体をサクッと把握してから動く「効率重視」タイプ！無駄なことはしたくない、スマートな戦略家です✨",
+                "⚖️【基本性格】\nまずは比較・検討！じっくり情報を集めてから決断する「慎重派」さん。失敗の少ない堅実な歩みができる人です🐢",
+                "🧱【基本性格】\nコツコツ積み上げる「実績重視」タイプ。一発逆転より、確実な成果を愛する安定感の持ち主！信頼度バツグンです🔥",
+                "🎨【基本性格】\n丁寧さが光る「職人肌」タイプ。細かいところにも気を配り、品質の高いアウトプットが出せる才能があります💎",
+                "🤝【基本性格】\nみんなのまとめ役！「調和」を大切にする平和主義者。空気を読むのがうまく、チームに一人は欲しい存在です🕊️",
+                "🚀【基本性格】\n思い立ったら即行動…の前に段取り！「計画実行」タイプ。準備万端で挑むから、周りも安心してついてこれます🚙"
+            ],
+            first: [
+                "💪【推しポイント】\nなんといっても「{S}」があなたの武器！迷わずスタートを切れる行動力は、周りからも一目置かれています👀",
+                "🧠【推しポイント】\n「{S}」のスキルが高め！情報を整理してクリアに考える力があり、相談役にぴったりです🧞‍♂️",
+                "🌳【推しポイント】\nあなたの強みは「{S}」。基礎を大事にする姿勢が、長期的に大きな結果を生みます。大器晩成かも！？🥚",
+                "🌊【推しポイント】\n「{S}」ができる柔軟性が魅力！どんな状況でも対応できるサバイバル能力の高さが光ります🔦",
+                "🤖【推しポイント】\n「{S}」の精度がすごい！ムラのない仕事ぶりは、プロフェッショナルとして重宝されるはず⚙️",
+                "⚡【推しポイント】\n「{S}」のスピード感が最高！切り替えが早く、テキパキ進める姿がカッコイイです🏎️"
+            ],
+            core: [
+                "⚠️【ちょっぴり注意】\n弱点があるとすれば「{W}」なところ。ここぞという時は、えいや！で決める勇気がカギかも🗝️",
+                "😰【ちょっぴり注意】\n焦ると「{W}」になりがち。テンパった時は深呼吸して☕ お茶でも飲んで落ち着きましょう。",
+                "🚧【ちょっぴり注意】\nこだわりすぎて「{W}」にならないように。70点でとりあえず進めちゃおう！くらいの軽さも大事です🎈",
+                "🔋【ちょっぴり注意】\n疲れが溜まると「{W}」が出ちゃうかも。自分の機嫌をとるのも大事なスキルのひとつです！🛌",
+                "🤯【ちょっぴり注意】\nあれもこれもと抱え込んで「{W}」になってない？優先順位をつけて、手放す勇気を持ちましょう👋",
+                "🎢【ちょっぴり注意】\n感情の波で「{W}」になりやすい時も。マイルールを作って、淡々とこなすモードを持つと最強です🤖"
+            ],
+            hidden: [
+                "🔎【思考のクセ】\n実は「{T}」な傾向アリ。ブレない軸を持っていて、自分の信念に基づいた行動ができる人です。",
+                "🚦【思考のクセ】\n「{T}」スタイルで優先順位を決めるタイプ。何が一番大事か、直感的にわかっているのが強み！",
+                "💭【思考のクセ】\n頭の中は意外と「{T}」。一度こうと思うと突き進むパワーがありますが、たまには寄り道もいいかも？",
+                "📏【思考のクセ】\n判断基準は「{T}」。一貫性があるので、周りからは「ブレない人」として信頼されています✨",
+                "📝【思考のクセ】\n進め方の好みは「{T}」。自分なりの型を持っていて、それにハマると爆速で成果が出せるタイプ！",
+                "🦎【思考のクセ】\n状況によっては「{T}」な対応も。カメレオンのように環境に合わせられる器用さがあります🌈"
+            ],
+            fatigue: [
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n好奇心で動けるフレッシュさが魅力。やってみてから考える勢いが強みです✨",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n新しい環境でも吸収が早く、挑戦がそのまま成長に直結するタイプ。伸びしろが大きいです🌱",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n試行錯誤しながら自分の型を作っていける時期。失敗も経験値に変えて前に進めます🧪",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n行動と計画のバランスが取りやすく、やるべきことを現実的に積み上げられる安定感があります📌",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n周囲を見ながら自分のペースを保てるタイプ。無理せず結果を出すコツを掴み始めています⚖️",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n視野が広がって、長期目線で選べる落ち着きが出てきます。頑張り方が上手になってきた証拠です🌿",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n経験を活かして効率良く回せるタイプ。取捨選択がうまく、優先順位を決めるのが得意です🗂️",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n落ち着きと行動力のバランスが良い時期。焦らず着実に進められる信頼感があります🧱",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n培った経験を判断に活かせるタイプ。ブレにくい軸があり、決断が安定します🧭",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n『無理しない戦略』が上手。体力・時間の配分を考えながら、堅実に結果を出せます⏳",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n余裕のある視点で周りを支えられるタイプ。背中で見せる安心感が魅力です🫶",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\nこれまでの積み重ねが強みになっている時期。安定した判断と継続力が光ります🏆",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n『大事なものを大事にする』感覚が育っていて、ぶれない価値観で選べるタイプです🎍",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n穏やかさと芯の強さが同居。周りの変化にも慌てず、自分のペースで整えられます🍵",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n人生の知恵が言葉や判断ににじむタイプ。落ち着きだけでなく、ユーモアも武器です📚",
+                "🕯️【精神年齢診断】\nあなたの精神年齢は「{A}」っぽい！\n達観した視点で、物事を大局から見られる人。周りを安心させる包容力があります🌙"
+            ],
+            relation: [
+                "🍽️【好きな食べ物】\nあなたの好きな食べ物はズバリ「{B}」！\n定番の美味しさが、疲れた心をホッと癒やしてくれますよね🥰",
+                "🍱【好きな食べ物】\nあなたの好きな食べ物はズバリ「{B}」！\n素材の良さを生かしたあの味、何度食べても飽きませんよね✨",
+                "🍜【好きな食べ物】\nあなたの好きな食べ物はズバリ「{B}」！\nエネルギーチャージに最適！一口食べるだけで元気が出ますよね💪",
+                "🍝【好きな食べ物】\nあなたの好きな食べ物はズバリ「{B}」！\nこだわりの詰まった最高の料理。その奥深さがたまりませんよね🎨",
+                "🍲【好きな食べ物】\nあなたの好きな食べ物はズバリ「{B}」！\nみんなでシェアしても良し、一人で楽しんでも良しな万能さが最高ですよね🍲",
+                "🍕【好きな食べ物】\nあなたの好きな食べ物はズバリ「{B}」！\nあの香りと味わい…思い出すだけでお腹が空いてきちゃいますよね😋"
+            ],
+            phase: [
+                "🌟【総評】\nバランス感覚がバツグン！戦略的に物事を進められるので、長期的に成功しやすいタイプです📈",
+                "🌱【総評】\nのびしろ無限大！環境に合わせて自分を変えられる柔軟性が、これからの飛躍を約束しています🚀",
+                "🏹【総評】\n狙った獲物は逃がさない実行力！静かに、でも確実に目標を達成するスナイパーのような人です🔫",
+                "⚖️【総評】\n攻めと守りのバランスが絶妙。チームの要として、なくてはならない存在になるでしょう🏅",
+                "💎【総評】\n磨けば光る原石！戦略を持って取り組めば、想像以上の成果が出るポテンシャルを秘めています✨",
+                "🏗️【総評】\n基盤を作るのがうまい建築家タイプ。あなたの作った仕組みが、みんなを助けることになります🏠"
+            ],
+            advice: [
+                "💡【アドバイス】\nあれこれ詰め込みすぎるとパンクしちゃうかも。余白（バッファ）を作る勇気を持って！🛀",
+                "👂【アドバイス】\n「褒め言葉」は素直に受け取ろう！自己肯定感を上げるのが、運気アップの近道です💖",
+                "🛑【アドバイス】\n「やらないこと」を決めるのが大事！8割の力で回すことを意識すると、逆に質が上がります⤴️",
+                "🏝️【アドバイス】\nスケジュールにはまず「遊び」の予定を入れよう！楽しみがあるからこそ、仕事も頑張れるタイプです🌴",
+                "📣【アドバイス】\n一人で抱え込まず、周りを頼って！あなたの弱みは、誰かの強みでカバーできます🤝",
+                "🪜【アドバイス】\nいきなり大きな目標を立てず、小さな「できた！」を積み重ねて。気づけば遠くまで行けているはず🚶"
+            ],
+            closing: [
+                "💌【最後に…】\nあなたは「安定」と「実行」を兼ね備えた素晴らしい才能の持ち主。自信を持って進んでくださいね！👍",
+                "🌈【最後に…】\nどんな環境でも花を咲かせられる人です。変化を恐れず、新しい波に乗っちゃいましょう！🏄",
+                "🐢【最後に…】\n「継続は力なり」を地で行くタイプ。あなたのペースで歩み続ければ、必ずゴールに辿り着けます🏁",
+                "🎹【最後に…】\n強さと優しさのバランスが魅力的。その調和を大切に、あなたらしいハーモニーを奏でてください🎶",
+                "🦅【最後に…】\nその高い視座を忘れないで。目の前のことだけでなく、未来を見据えて羽ばたいて！🕊️",
+                "🗺️【最後に…】\n人生という冒険はまだ始まったばかり。持ち前の戦略眼で、最高の地図を描いていきましょう！🧭"
+            ]
+        };
+
+        /********************
+         * Base64url + pack/unpack (6 chars)
+         ********************/
+        // Polyfills / graceful fallbacks for older environments
+        if (!String.prototype.replaceAll) {
+            String.prototype.replaceAll = function (search, replace) {
+                return this.split(search).join(replace);
+            };
+        }
+
+        const B64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        // const B64I = Object.fromEntries([...B64URL].map((c, i) => [c, i]));
+        const B64I = {};
+        for (let i = 0; i < B64URL.length; i++) {
+            B64I[B64URL[i]] = i;
+        }
+
+        // 35bit mask
+        const TOTAL_BITS = 35;
+        // OBF_MASK split into high (3 bits) and low (32 bits)
+        // 0x12ab34cd5 -> hi: 0x1, lo: 0x2ab34cd5
+        const OBF_HI = 0x1;
+        const OBF_LO = 0x2ab34cd5;
+
+        function packToCode(fields) {
+            let currentVal = 0;
+            let multiplier = 1;
+
+            for (const f of fields) {
+                const val = f.value;
+                const max = Math.pow(2, f.bits);
+                // Ensure value is within bounds
+                const v = val % max;
+                currentVal += v * multiplier;
+                multiplier *= max;
+            }
+
+            // Obfuscate (XOR)
+            // Split into lo (32 bit) and hi (rest)
+            let lo = currentVal % 4294967296; // 2^32
+            let hi = Math.floor(currentVal / 4294967296);
+
+            lo = lo ^ OBF_LO;
+            hi = hi ^ OBF_HI;
+
+            // Force unsigned 32-bit for lo before recombining
+            lo = lo >>> 0;
+
+            // Recombine? No, we need to extract 6-bit chunks for Base64
+            // Total 36 bits capacity (6 chars * 6 bits = 36 bits). We have 35 bits.
+            // We can construct the code directly from the XOR'd bits.
+
+            // Reconstruct full value for slicing
+            let x = hi * 4294967296 + lo;
+
+            const len = 6;
+            let out = "";
+            for (let i = 0; i < len; i++) {
+                const chunk = Math.floor(x / Math.pow(64, i)) % 64;
+                out += B64URL[chunk];
+            }
+            return out;
+        }
+
+        function unpackFromCode(code, fieldsBits) {
+            if (!code || code.length !== 6) throw new Error("invalid code length");
+
+            let x = 0;
+            for (let i = 0; i < code.length; i++) {
+                const v = B64I[code[i]];
+                if (v === undefined) throw new Error("invalid code char");
+                x += v * Math.pow(64, i);
+            }
+
+            // De-obfuscate
+            let lo = x % 4294967296;
+            let hi = Math.floor(x / 4294967296);
+
+            lo = lo ^ OBF_LO;
+            hi = hi ^ OBF_HI;
+
+            // Recombine to raw value
+            // Note: lo is treated as signed by bitwise XOR in JS, need to ensure unsigned behavior?
+            // JS bitwise XOR returns signed 32-bit.
+            // lo >>> 0 forces unsigned.
+            lo = lo >>> 0;
+
+            let currentVal = hi * 4294967296 + lo;
+            let raw = currentVal; // Keep standard number for seeding
+
+            const out = [];
+            for (const bits of fieldsBits) {
+                const max = Math.pow(2, bits);
+                const val = currentVal % max;
+                out.push(Math.floor(val));
+                currentVal = Math.floor(currentVal / max);
+            }
+            // Return raw as Number (not BigInt)
+            return { values: out, raw: raw };
+        }
+
+        function randInt(n) {
+            if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+                const buf = new Uint32Array(1);
+                crypto.getRandomValues(buf);
+                return buf[0] % n;
+            }
+            // fallback to Math.random when crypto is unavailable
+            return Math.floor(Math.random() * n);
+        }
+
+        // deterministic PRNG (mulberry32)
+        function mulberry32(seed) {
+            let a = seed >>> 0;
+            return function () {
+                a |= 0;
+                a = (a + 0x6D2B79F5) | 0;
+                let t = Math.imul(a ^ (a >>> 15), 1 | a);
+                t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            }
+        }
+
+        /********************
+         * Build result text (9 segments)
+         ********************/
+        function tonePreface(toneIdx) {
+            const t = TONES[toneIdx];
+            return `診断結果：あなたは“${t}”。\n`;
+        }
+
+        function pick6(arr, idx) {
+            return arr[idx % 6];
+        }
+
+        function buildResultFromDecoded(decoded) {
+            const tone = decoded.tone;
+            const strength = decoded.strength;
+            const state = decoded.state;
+            const relation = decoded.relation;
+            const wA = decoded.wA;
+            const wB = decoded.wB;
+
+            const A = AGE16[wA];
+            const B = FOOD16[wB];
+            const S = STRENGTHS[strength];
+            const W = STATES[state];
+            const T = RELATIONS[relation];
+
+            const lines = [];
+            lines.push(tonePreface(tone) + pick6(SEG.intro, tone));
+            lines.push(pick6(SEG.first, strength).replaceAll("{S}", S));
+            lines.push(pick6(SEG.core, state).replaceAll("{W}", W));
+            lines.push(pick6(SEG.hidden, relation).replaceAll("{T}", T));
+            lines.push((SEG.fatigue[wA] || SEG.fatigue[wA % SEG.fatigue.length]).replaceAll("{A}", A));
+            lines.push(pick6(SEG.relation, wB).replaceAll("{B}", B));
+
+            // 追加のまとめ・提案・総括を付けて、診断文書っぽく仕上げる
+            lines.push("");
+            lines.push(pick6(SEG.phase, tone));
+            lines.push(pick6(SEG.advice, strength));
+            lines.push(pick6(SEG.closing, state));
+
+            return lines.join("\n");
+        }
+
+        /********************
+         * Routing + Host UI
+         ********************/
+        const hostView = document.getElementById("hostView");
+        const playView = document.getElementById("playView");
+        const routePill = document.getElementById("routePill");
+
+        const toneEl = document.getElementById("tone");
+        const strengthEl = document.getElementById("strength");
+        const stateEl = document.getElementById("state");
+        const relationEl = document.getElementById("relation");
+        const wordAEl = document.getElementById("wordA");
+        const wordBEl = document.getElementById("wordB");
+
+        const genBtn = document.getElementById("genBtn");
+        const copyBtn = document.getElementById("copyBtn");
+        const goPlayBtn = document.getElementById("goPlayBtn");
+        const hostLinkBtn = document.getElementById("hostLinkBtn");
+        const shareOut = document.getElementById("shareOut");
+        const previewOut = document.getElementById("previewOut");
+
+
+        function fillSelect(select, arr) {
+            select.innerHTML = "";
+            arr.forEach((v, i) => {
+                const opt = document.createElement("option");
+                opt.value = i;
+                opt.textContent = v;
+                select.appendChild(opt);
+            });
+        }
+
+        fillSelect(toneEl, TONES);
+        fillSelect(strengthEl, STRENGTHS);
+        fillSelect(stateEl, STATES);
+        fillSelect(relationEl, RELATIONS);
+        fillSelect(wordAEl, AGE16);
+        fillSelect(wordBEl, FOOD16);
+
+        let lastCode = "";
+        let lastShareUrl = "";
+
+        function buildPreviewDecoded() {
+            const tone = Number(toneEl.value);
+            const strength = Number(strengthEl.value);
+            const state = Number(stateEl.value);
+            const relation = Number(relationEl.value);
+            const wA = Number(wordAEl.value);
+            const wB = Number(wordBEl.value);
+
+            const seed32 = ((tone & 7) << 12)
+                ^ ((strength & 7) << 9)
+                ^ ((state & 7) << 6)
+                ^ ((relation & 7) << 3)
+                ^ ((wA & 15) << 1)
+                ^ (wB & 15);
+
+            const r = mulberry32(seed32 >>> 0);
+            const seg5 = [0, 0, 0, 0, 0].map(() => Math.floor(r() * 6));
+
+            return {
+                tone,
+                strength,
+                state,
+                relation,
+                wA,
+                wB,
+                seg5,
+                raw: seed32 >>> 0
+            };
+        }
+
+        function updateHostPreview() {
+            if (!previewOut) return;
+            try {
+                const decoded = buildPreviewDecoded();
+                const text = buildResultFromDecoded(decoded);
+                previewOut.textContent = text;
+            } catch (e) {
+                previewOut.textContent = "プレビュー生成に失敗しました";
+            }
+        }
+
+        function makeShareUrl(code) {
+            // hashのみ運用（クエリを使わない）
+            const base = location.href.split("#")[0];
+            return base + "#" + code;
+        }
+
+        async function copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (e) {
+                // fallback
+                const ta = document.createElement("textarea");
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                const ok = document.execCommand("copy");
+                document.body.removeChild(ta);
+                return ok;
+            }
+        }
+
+        function setHostOutput(code) {
+            lastCode = code;
+            lastShareUrl = makeShareUrl(code);
+            shareOut.textContent = lastShareUrl;
+            copyBtn.disabled = false;
+            goPlayBtn.disabled = false;
+        }
+
+        function generateCodeFromUI() {
+            const tone = Number(toneEl.value);
+            const strength = Number(strengthEl.value);
+            const state = Number(stateEl.value);
+            const relation = Number(relationEl.value);
+            const wA = Number(wordAEl.value);
+            const wB = Number(wordBEl.value);
+
+            // ランダム要素を排除して固定値を使う
+            const s0 = 0;
+            const s1 = 0;
+            const s2 = 0;
+            const s3 = 0;
+            const s4 = 0;
+
+            const fields = [
+                { value: tone, bits: 3 },
+                { value: strength, bits: 3 },
+                { value: state, bits: 3 },
+                { value: relation, bits: 3 },
+                { value: wA, bits: 4 },
+                { value: wB, bits: 4 },
+                { value: s0, bits: 3 },
+                { value: s1, bits: 3 },
+                { value: s2, bits: 3 },
+                { value: s3, bits: 3 },
+                { value: s4, bits: 3 },
+            ];
+            return packToCode(fields);
+        }
+
+        [toneEl, strengthEl, stateEl, relationEl, wordAEl, wordBEl].forEach((el) => {
+            if (!el) return;
+            el.addEventListener("change", updateHostPreview);
+        });
+
+        updateHostPreview();
+
+        // Ensure the button is enabled and log interactions for debugging
+        try {
+            genBtn.disabled = false;
+            genBtn.style.pointerEvents = 'auto';
+            genBtn.addEventListener('pointerdown', () => console.log('genBtn pointerdown'));
+        } catch (e) { console.warn('genBtn debug install failed', e); }
+
+        genBtn.addEventListener("click", () => {
+            try {
+                console.log('genBtn clicked');
+                const code = generateCodeFromUI();
+                setHostOutput(code);
+            } catch (e) {
+                console.error("GenCode Error: " + e.message);
+            }
+        });
+
+        // Global pointer logging to help find blocking overlays
+        document.addEventListener('pointerdown', (ev) => {
+            const el = ev.target;
+            console.log('pointerdown target:', el && (el.id || el.className || el.nodeName));
+        }, { capture: true });
+
+        copyBtn.addEventListener("click", async () => {
+            if (!lastShareUrl) return;
+            const ok = await copyText(lastShareUrl);
+            copyBtn.textContent = ok ? "コピーした" : "コピー失敗";
+            setTimeout(() => copyBtn.textContent = "URLコピー", 900);
+        });
+
+        goPlayBtn.addEventListener("click", () => {
+            if (!lastCode) return;
+            location.hash = lastCode;
+        });
+
+        if (hostLinkBtn) {
+            hostLinkBtn.addEventListener("click", () => {
+                location.hash = "host";
+            });
+        }
+
+        // Diagnostics button (runs a quick state dump into overlay + console)
+        const diagBtnHost = document.getElementById('diagBtnHost');
+        if (diagBtnHost) {
+            diagBtnHost.addEventListener('click', generateDiagnostics);
+        }
+        const reinitBtnHost = document.getElementById('reinitBtnHost');
+        if (reinitBtnHost) {
+            reinitBtnHost.addEventListener('click', () => {
+                console.log('reinit requested');
+                try { hideOverlay(); } catch (e) { }
+                const h = (location.hash || '').replace('#', '').trim();
+                console.log('reinit -> hash:', h);
+                if (h && h.length === 6) {
+                    try { showPlay(h); } catch (e) { console.error('reinit showPlay failed', e); showHost(); }
+                } else {
+                    showHost();
+                }
+            });
+        }
+
+        /********************
+         * Play UI + overlay
+         ********************/
+        const overlay = document.getElementById("overlay");
+        const ovTitle = document.getElementById("ovTitle");
+        const ovText = document.getElementById("ovText");
+        const ovSub = document.getElementById("ovSub");
+        const revealBtn = document.getElementById("revealBtn");
+        const toHostBtn = document.getElementById("toHostBtn");
+        const closeBtn = document.getElementById("closeBtn");
+        let revealTimer = null;
+
+        // typewriter for modal body
+        let typewriterTimer = null;
+        let typewriterToken = 0;
+
+        function cancelTypewriter() {
+            typewriterToken++;
+            if (typewriterTimer) {
+                clearTimeout(typewriterTimer);
+                typewriterTimer = null;
+            }
+        }
+
+        function typewriteText(el, fullText, opts = {}) {
+            const speedMs = Number.isFinite(opts.speedMs) ? opts.speedMs : 14;
+            const done = typeof opts.onDone === 'function' ? opts.onDone : null;
+            const token = ++typewriterToken;
+
+            if (!el) {
+                if (done) done();
+                return;
+            }
+
+            // Always start fresh
+            el.textContent = "";
+            let i = 0;
+
+            const step = () => {
+                if (token !== typewriterToken) return; // cancelled
+                if (i >= fullText.length) {
+                    typewriterTimer = null;
+                    if (done) done();
+                    return;
+                }
+
+                // Slightly faster through newlines/spaces for readability
+                const ch = fullText[i];
+                el.textContent += ch;
+                i++;
+
+                const nextDelay = (ch === "\n") ? Math.max(6, speedMs * 0.6) : speedMs;
+                typewriterTimer = setTimeout(step, nextDelay);
+            };
+
+            step();
+        }
+
+        function showOverlay(title, text, sub = "") {
+            cancelTypewriter();
+            ovTitle.textContent = title;
+            ovText.textContent = text;
+            ovSub.textContent = sub;
+            overlay.style.display = "flex";
+        }
+        function hideOverlay() {
+            cancelTypewriter();
+            overlay.style.display = "none";
+            revealBtn.style.display = "none";
+            revealBtn.classList.remove('show');
+            if (toHostBtn) {
+                toHostBtn.style.display = "none";
+                toHostBtn.classList.remove('show');
+            }
+            closeBtn.style.display = "none";
+            if (revealTimer) {
+                clearTimeout(revealTimer);
+                revealTimer = null;
+            }
+        }
+
+        closeBtn.addEventListener("click", hideOverlay);
+
+        if (revealBtn) {
+            revealBtn.addEventListener('click', () => {
+                cancelTypewriter();
+                ovTitle.textContent = 'ネタバレ';
+                ovText.textContent = '実はこの診断結果はAIが作ったものではありません。\nあなたへリンクを送った方が選んだ文章でした。\nこの診断はジョークアプリです。\n\nあなたがもし他の方へ仕掛けたいと思った場合は、下記のホスト画面へボタンを押して、コードを生成してください。';
+                ovSub.textContent = '';
+                revealBtn.style.display = 'none';
+                revealBtn.classList.remove('show');
+                if (toHostBtn) {
+                    toHostBtn.style.display = 'inline-flex';
+                    requestAnimationFrame(() => toHostBtn.classList.add('show'));
+                }
+            });
+        }
+
+        if (toHostBtn) {
+            toHostBtn.addEventListener('click', () => {
+                hideOverlay();
+                showHost();
+            });
+        }
+
+        /********************
+         * DOM Mini Puzzle (bookshelf)
+         ********************/
+        let game = null;
+
+        function destroyGame() {
+            // Clear any DOM-based game content and timers
+            if (window.__bookshelf) {
+                if (window.__bookshelf.timer) clearInterval(window.__bookshelf.timer);
+                window.__bookshelf = null;
+            }
+            const gameDiv = document.getElementById("game");
+            gameDiv.innerHTML = "";
+        }
+
+        function startGameWithDecoded(decoded, resultText) {
+            console.log('startGameWithDecoded', decoded);
+            // New DOM-based bookshelf game
+            destroyGame();
+            const gameDiv = document.getElementById('game');
+            if (gameDiv) gameDiv.innerHTML = '<div class="game-loading">初期化中…</div>';
+
+            let selectedBook = null;
+            function updateRotateButtons() {
+                const disabled = !selectedBook || selectedBook.dataset.dragging === '1';
+                if (rotateRightBtn) rotateRightBtn.disabled = disabled;
+            }
+            function selectBook(el) {
+                if (selectedBook === el) return;
+                if (selectedBook) selectedBook.classList.remove('selected');
+                selectedBook = el;
+                if (selectedBook) selectedBook.classList.add('selected');
+                updateRotateButtons();
+            }
+            const COLS = 17, ROWS = 15, CELL = 40; // Grid cells
+            const totalBooks = 9;
+            let placedCount = 0;
+            let rotateRightBtn = null;
+
+            // Build grid and initial area
+            if (gameDiv) gameDiv.innerHTML = "";
+            const board = document.createElement('div');
+            board.className = 'bookshelf-game';
+            board.innerHTML = `
+                <div class="init-col" aria-label="初期ボックス"></div>
+                <div class="rotate-col" aria-label="回転">
+                    <button class="secondary" id="rotateRightBtn" disabled>回転</button>
+                </div>
+                <div class="grid-col" aria-label="配置グリッド">
+                    <div class="grid-root"></div>
+                </div>
+            `;
+            gameDiv.appendChild(board);
+
+            const initCol = board.querySelector('.init-col');
+            const gridRoot = board.querySelector('.grid-root');
+            rotateRightBtn = board.querySelector('#rotateRightBtn');
+            gridRoot.style.width = (COLS * CELL) + 'px';
+            gridRoot.style.height = (ROWS * CELL) + 'px';
+            gridRoot.style.position = 'relative';
+            gridRoot.style.backgroundSize = CELL + 'px ' + CELL + 'px';
+            gridRoot.style.backgroundColor = 'rgba(255,255,255,0.02)';
+            gridRoot.style.border = '1px solid rgba(255,255,255,0.04)';
+            gridRoot.style.minWidth = '300px';
+            gridRoot.style.minHeight = '200px';
+
+            // Occupancy grid (COLS x ROWS)
+            const occ = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+
+            // Book definitions (sizes in cells): three sizes for three colors => 9 books
+            const sizes = [{ w: 2, h: 7 }, { w: 1, h: 4 }, { w: 1, h: 3 }];
+            const colors = ['red', 'blue', 'green'];
+            const books = [];
+
+            let idCounter = 1;
+            colors.forEach((col) => {
+                sizes.forEach((s) => {
+                    const b = {
+                        id: 'book-' + (idCounter++),
+                        color: col,
+                        w: s.w,
+                        h: s.h,
+                    };
+                    books.push(b);
+                });
+            });
+
+            // Create book elements in init column
+            books.forEach((b, idx) => {
+                console.log('create book', b.id, b.w, b.h, b.color);
+                const el = document.createElement('div');
+                el.className = 'book ' + b.color;
+                el.dataset.id = b.id;
+                el.dataset.w = b.w;
+                el.dataset.h = b.h;
+                el.dataset.rot = '0';
+                el.style.width = (b.w * CELL - 8) + 'px';
+                el.style.height = (b.h * CELL - 8) + 'px';
+                el.style.margin = '8px';
+                el.textContent = '';
+                el.tabIndex = 0;
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectBook(el);
+                });
+                initCol.appendChild(el);
+
+                // store element reference
+                b.el = el;
+
+                // pointer drag
+                makeDraggable(el, b);
+            });
+
+            // Placement hint element
+            const hint = document.createElement('div');
+            hint.className = 'placement-hint';
+            hint.style.position = 'absolute';
+            hint.style.pointerEvents = 'none';
+            hint.style.display = 'none';
+            gridRoot.appendChild(hint);
+
+            // Helper functions
+            function canPlaceAt(x, y, w, h, ignoreId = null) {
+                if (x < 0 || y < 0 || x + w > COLS || y + h > ROWS) return false;
+                for (let ry = y; ry < y + h; ry++) for (let rx = x; rx < x + w; rx++) {
+                    const cur = occ[ry][rx];
+                    if (cur && cur !== ignoreId) return false;
+                }
+                return true;
+            }
+
+            function occupy(id, x, y, w, h) {
+                for (let ry = y; ry < y + h; ry++) for (let rx = x; rx < x + w; rx++) occ[ry][rx] = id;
+            }
+
+            function vacate(id) {
+                for (let ry = 0; ry < ROWS; ry++) for (let rx = 0; rx < COLS; rx++) if (occ[ry][rx] === id) occ[ry][rx] = null;
+            }
+
+            function makeDraggable(el, book) {
+                el.style.position = 'relative';
+                el.style.cursor = 'grab';
+
+                let dragging = false;
+                let dragStarted = false;
+                let startX = 0, startY = 0;
+                let offsetX = 0, offsetY = 0;
+                let originalParent = el.parentElement;
+                let placed = false;
+                let placeX = -1, placeY = -1;
+                const DRAG_THRESHOLD = 6;
+
+                function startDrag(e) {
+                    dragStarted = true;
+                    dragging = true;
+                    el.dataset.dragging = '1';
+                    el.style.opacity = '0.3';
+
+                    const startRect = el.getBoundingClientRect();
+                    offsetX = e.clientX - startRect.left;
+                    offsetY = e.clientY - startRect.top;
+
+                    // if currently placed, free occupancy so it can move
+                    if (el.dataset.placed === '1') {
+                        placed = true;
+                        el.dataset.placed = '0';
+                        placeX = Number(el.dataset.x);
+                        placeY = Number(el.dataset.y);
+                        vacate(el.dataset.id);
+                    } else {
+                        placed = false;
+                    }
+
+                    // move to body to allow absolute positioning over everything
+                    document.body.appendChild(el);
+                    el.style.position = 'fixed';
+                    el.style.zIndex = 9999;
+                    el.style.left = startRect.left + 'px';
+                    el.style.top = startRect.top + 'px';
+
+                    moveAt(e.clientX, e.clientY);
+                }
+
+                function onPointerDown(e) {
+                    e.preventDefault();
+                    el.setPointerCapture(e.pointerId);
+                    selectBook(el);
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    dragging = false;
+                    dragStarted = false;
+                    el.dataset.dragging = '0';
+                    updateRotateButtons();
+
+                    window.addEventListener('pointermove', onPointerMove);
+                    window.addEventListener('pointerup', onPointerUp);
+                }
+
+                function moveAt(clientX, clientY) {
+                    // show hint over grid if inside
+                    const gridRect = gridRoot.getBoundingClientRect();
+                    const rot = Number(el.dataset.rot) || 0;
+                    const w = (rot % 2 === 0) ? Number(el.dataset.w) : Number(el.dataset.h);
+                    const h = (rot % 2 === 0) ? Number(el.dataset.h) : Number(el.dataset.w);
+                    const desiredLeft = clientX - offsetX;
+                    const desiredTop = clientY - offsetY;
+                    const gx = Math.floor((desiredLeft - gridRect.left) / CELL);
+                    const gy = Math.floor((desiredTop - gridRect.top) / CELL);
+                    const inside = desiredLeft >= gridRect.left
+                        && desiredTop >= gridRect.top
+                        && desiredLeft <= (gridRect.right - w * CELL)
+                        && desiredTop <= (gridRect.bottom - h * CELL);
+
+                    if (inside) {
+                        // snap book to grid overlay while dragging
+                        el.style.left = (gridRect.left + gx * CELL) + 'px';
+                        el.style.top = (gridRect.top + gy * CELL) + 'px';
+                        el.style.width = (w * CELL - 8) + 'px';
+                        el.style.height = (h * CELL - 8) + 'px';
+
+                        if (canPlaceAt(gx, gy, w, h, el.dataset.id)) {
+                            hint.style.display = 'block';
+                            hint.style.left = (gx * CELL) + 'px';
+                            hint.style.top = (gy * CELL) + 'px';
+                            hint.style.width = (w * CELL) + 'px';
+                            hint.style.height = (h * CELL) + 'px';
+                            hint.style.background = 'rgba(138, 255, 165, 0.25)';
+                            hint.style.border = '2px solid rgba(34,150,90,0.9)';
+                        } else {
+                            hint.style.display = 'block';
+                            hint.style.left = (Math.min(Math.max(0, gx), COLS - 1) * CELL) + 'px';
+                            hint.style.top = (Math.min(Math.max(0, gy), ROWS - 1) * CELL) + 'px';
+                            hint.style.width = (w * CELL) + 'px';
+                            hint.style.height = (h * CELL) + 'px';
+                            hint.style.background = 'rgba(255, 100, 100, 0.08)';
+                            hint.style.border = '2px dashed rgba(200,50,50,0.9)';
+                        }
+                    } else {
+                        el.style.left = desiredLeft + 'px';
+                        el.style.top = desiredTop + 'px';
+                        el.style.width = (w * CELL - 8) + 'px';
+                        el.style.height = (h * CELL - 8) + 'px';
+                        hint.style.display = 'none';
+                    }
+                }
+
+                function onPointerMove(e) {
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    if (!dragStarted) {
+                        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+                        startDrag(e);
+                    }
+                    if (!dragging) return;
+                    moveAt(e.clientX, e.clientY);
+                }
+
+                function onPointerUp(e) {
+                    dragging = false;
+                    el.dataset.dragging = '0';
+                    el.style.opacity = '';
+                    el.releasePointerCapture(e.pointerId);
+                    window.removeEventListener('pointermove', onPointerMove);
+                    window.removeEventListener('pointerup', onPointerUp);
+
+                    updateRotateButtons();
+
+                    if (!dragStarted) {
+                        return;
+                    }
+
+                    const gridRect = gridRoot.getBoundingClientRect();
+                    const clientX = e.clientX, clientY = e.clientY;
+                    const rot = Number(el.dataset.rot) || 0;
+                    const w = (rot % 2 === 0) ? Number(el.dataset.w) : Number(el.dataset.h);
+                    const h = (rot % 2 === 0) ? Number(el.dataset.h) : Number(el.dataset.w);
+                    const desiredLeft = clientX - offsetX;
+                    const desiredTop = clientY - offsetY;
+                    const gx = Math.floor((desiredLeft - gridRect.left) / CELL);
+                    const gy = Math.floor((desiredTop - gridRect.top) / CELL);
+                    const inside = desiredLeft >= gridRect.left
+                        && desiredTop >= gridRect.top
+                        && desiredLeft <= (gridRect.right - w * CELL)
+                        && desiredTop <= (gridRect.bottom - h * CELL);
+
+                    if (inside && canPlaceAt(gx, gy, w, h, el.dataset.id)) {
+                        // place into grid (use grid-local coords)
+                        el.style.left = (gx * CELL) + 'px';
+                        el.style.top = (gy * CELL) + 'px';
+                        el.style.width = (w * CELL - 8) + 'px';
+                        el.style.height = (h * CELL - 8) + 'px';
+                        gridRoot.appendChild(el);
+                        el.style.position = 'absolute';
+                        el.dataset.placed = '1';
+                        el.dataset.x = gx;
+                        el.dataset.y = gy;
+                        occupy(el.dataset.id, gx, gy, w, h);
+                        hint.style.display = 'none';
+                        placedCount++;
+                    } else {
+                        // return to init column
+                        initCol.appendChild(el);
+                        el.style.position = 'relative';
+                        el.style.left = '';
+                        el.style.top = '';
+                        el.style.zIndex = '';
+                        const rot = Number(el.dataset.rot) || 0;
+                        const w = (rot % 2 === 0) ? Number(el.dataset.w) : Number(el.dataset.h);
+                        const h = (rot % 2 === 0) ? Number(el.dataset.h) : Number(el.dataset.w);
+                        el.style.width = (w * CELL - 8) + 'px';
+                        el.style.height = (h * CELL - 8) + 'px';
+                        if (placed) {
+                            // it was moved out, so update counters
+                            placedCount = Math.max(0, placedCount - 1);
+                        }
+                        hint.style.display = 'none';
+                    }
+                }
+
+                el.addEventListener('pointerdown', onPointerDown);
+            }
+
+            function rotateSelected(direction) {
+                if (!selectedBook || selectedBook.dataset.dragging === '1') return;
+                const el = selectedBook;
+                const curRot = Number(el.dataset.rot) || 0;
+                const rot = (curRot + (direction === 'left' ? 3 : 1)) % 4;
+                const curX = el.dataset.placed === '1' ? Number(el.dataset.x) : null;
+                const curY = el.dataset.placed === '1' ? Number(el.dataset.y) : null;
+                const w = (rot % 2 === 0) ? Number(el.dataset.w) : Number(el.dataset.h);
+                const h = (rot % 2 === 0) ? Number(el.dataset.h) : Number(el.dataset.w);
+                if (el.dataset.placed === '1') {
+                    const oldW = (curRot % 2 === 0) ? Number(el.dataset.w) : Number(el.dataset.h);
+                    const oldH = (curRot % 2 === 0) ? Number(el.dataset.h) : Number(el.dataset.w);
+                    const centerX = curX + oldW / 2;
+                    const centerY = curY + oldH / 2;
+                    const newX = Math.round(centerX - w / 2);
+                    const newY = Math.round(centerY - h / 2);
+                    vacate(el.dataset.id);
+                    if (canPlaceAt(newX, newY, w, h, el.dataset.id)) {
+                        el.dataset.rot = String(rot);
+                        el.setAttribute('data-rot', String(rot));
+                        el.style.width = (w * CELL - 8) + 'px';
+                        el.style.height = (h * CELL - 8) + 'px';
+                        el.style.left = (newX * CELL) + 'px';
+                        el.style.top = (newY * CELL) + 'px';
+                        el.dataset.x = newX;
+                        el.dataset.y = newY;
+                        occupy(el.dataset.id, newX, newY, w, h);
+                    } else {
+                        occupy(el.dataset.id, curX, curY, oldW, oldH);
+                        el.animate([{ transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'translateX(0)' }], { duration: 180 });
+                    }
+                } else {
+                    el.dataset.rot = String(rot);
+                    el.setAttribute('data-rot', String(rot));
+                    const w2 = (rot % 2 === 0) ? Number(el.dataset.w) : Number(el.dataset.h);
+                    const h2 = (rot % 2 === 0) ? Number(el.dataset.h) : Number(el.dataset.w);
+                    el.style.width = (w2 * CELL - 8) + 'px';
+                    el.style.height = (h2 * CELL - 8) + 'px';
+                }
+            }
+
+            if (rotateRightBtn && !rotateRightBtn.dataset.bound) {
+                rotateRightBtn.dataset.bound = '1';
+                rotateRightBtn.addEventListener('click', () => rotateSelected('right'));
+            }
+            updateRotateButtons();
+
+            function makeDoubleClickRotate(el, book) {
+                let last = 0;
+                function tryRotate() {
+                    if (el.dataset.dragging === '1') return;
+                    const rot = Number(el.dataset.rot) ^ 1;
+                    const curX = el.dataset.placed === '1' ? Number(el.dataset.x) : null;
+                    const curY = el.dataset.placed === '1' ? Number(el.dataset.y) : null;
+                    const w = rot === 0 ? Number(el.dataset.w) : Number(el.dataset.h);
+                    const h = rot === 0 ? Number(el.dataset.h) : Number(el.dataset.w);
+                    if (el.dataset.placed === '1') {
+                        // check if rotation fits
+                        const oldW = Number(el.dataset.rot) === 0 ? Number(el.dataset.w) : Number(el.dataset.h);
+                        const oldH = Number(el.dataset.rot) === 0 ? Number(el.dataset.h) : Number(el.dataset.w);
+                        vacate(el.dataset.id);
+                        if (canPlaceAt(curX, curY, w, h, el.dataset.id)) {
+                            el.dataset.rot = String(rot);
+                            el.style.width = (w * CELL - 8) + 'px';
+                            el.style.height = (h * CELL - 8) + 'px';
+                            occupy(el.dataset.id, curX, curY, w, h);
+                        } else {
+                            // revert occupy with old size
+                            occupy(el.dataset.id, curX, curY, oldW, oldH);
+                            // show a small shake
+                            el.animate([{ transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'translateX(0)' }], { duration: 180 });
+                        }
+                    } else {
+                        // when not placed, just toggle size
+                        el.dataset.rot = String(rot);
+                        const w2 = rot === 0 ? Number(el.dataset.w) : Number(el.dataset.h);
+                        const h2 = rot === 0 ? Number(el.dataset.h) : Number(el.dataset.w);
+                        el.style.width = (w2 * CELL - 8) + 'px';
+                        el.style.height = (h2 * CELL - 8) + 'px';
+                    }
+                }
+
+                el.addEventListener('dblclick', (e) => {
+                    e.preventDefault();
+                    tryRotate();
+                });
+
+                el.addEventListener('pointerup', (e) => {
+                    const now = Date.now();
+                    if (now - last < 350) {
+                        // double tap
+                        last = 0;
+                        tryRotate();
+                    } else {
+                        last = now;
+                    }
+                });
+            }
+
+            // Diagnosis button (use existing overlay)
+            function runAnalysisSequence(onDone) {
+                const steps = [
+                    { t: 0, msg: 'データを読み込み中…' },
+                    { t: 25, msg: '配置パターンを解析中…' },
+                    { t: 50, msg: '傾向を抽出中…' },
+                    { t: 75, msg: '結果を生成中…' },
+                    { t: 100, msg: '解析完了' }
+                ];
+
+                showOverlay('解析中…', 'しばらくお待ちください。', '');
+                let idx = 0;
+                let pct = 0;
+                const tick = () => {
+                    if (idx < steps.length && pct >= steps[idx].t) {
+                        ovText.textContent = steps[idx].msg;
+                        idx++;
+                    }
+                    ovSub.textContent = `進捗: ${pct}%`;
+                    if (pct >= 100) {
+                        clearInterval(timer);
+                        setTimeout(() => onDone && onDone(), 400);
+                        return;
+                    }
+                    pct += 2.5;
+                };
+                const timer = setInterval(tick, 80);
+                tick();
+            }
+
+            const diagBtn = document.createElement('button');
+            diagBtn.className = 'secondary diag-btn';
+            diagBtn.textContent = '整理完了！ 診断結果を見る';
+            diagBtn.onclick = () => {
+                // show result reconstructed from host parameters
+                const title = '診断結果';
+                const text = resultText;
+                runAnalysisSequence(() => {
+                    // Show overlay first, then type out body gradually
+                    showOverlay(title, '', '');
+                    closeBtn.style.display = 'inline-flex';
+                    revealBtn.style.display = 'inline-flex';
+                    revealBtn.classList.remove('show');
+                    if (revealTimer) {
+                        clearTimeout(revealTimer);
+                        revealTimer = null;
+                    }
+
+                    // Typewriter effect: start reveal timer after the text is fully printed
+                    typewriteText(ovText, text, {
+                        speedMs: 12,
+                        onDone: () => {
+                            revealTimer = setTimeout(() => {
+                                revealBtn.classList.add('show');
+                            }, 10000);
+                        }
+                    });
+                });
+            };
+
+            // place diag button after grid
+            const gridCol = board.querySelector('.grid-col');
+            gridCol.appendChild(diagBtn);
+
+            // store reference for cleanup
+            window.__bookshelf = { occ, books, board };
+
+            // End of startGameWithDecoded
+        }
+
+        function typewriter(text, el, speedMs, onDone) {
+            el.textContent = "";
+            let i = 0;
+            const t = setInterval(() => {
+                el.textContent += text[i] || "";
+                i++;
+                if (i >= text.length) {
+                    clearInterval(t);
+                    onDone && onDone();
+                }
+            }, speedMs);
+        }
+
+        // Diagnostic helper
+        function generateDiagnostics() {
+            try {
+                const gameEl = document.querySelector('#game');
+                const bookshelf = !!document.querySelector('.bookshelf-game');
+                const loading = !!document.querySelector('.game-loading');
+                const bookCount = document.querySelectorAll('.book').length;
+                const occInfo = (window.__bookshelf && window.__bookshelf.occ) ? 'initialized' : 'not initialized';
+                const firstBookInfo = (function () { const b = document.querySelector('.book'); if (!b) return 'no book'; const r = b.getBoundingClientRect(); return `w:${Math.round(r.width)} h:${Math.round(r.height)} left:${Math.round(r.left)} top:${Math.round(r.top)}` })();
+                const overlayVisible = (overlay && overlay.style && overlay.style.display && overlay.style.display !== 'none') ? 'visible' : 'hidden';
+                const ovTextVal = ovText ? ovText.textContent : '';
+
+                const report = [`bookshelf:${bookshelf}`, `loading:${loading}`, `bookCount:${bookCount}`, `occ:${occInfo}`, `overlay:${overlayVisible}`, `ovText:${ovTextVal}`, `firstBook:${firstBookInfo}`].join('\n');
+                document.querySelectorAll('.book').forEach((b, i) => { b.style.outline = '2px solid rgba(255,255,255,0.6)'; b.style.zIndex = 9999; });
+            } catch (e) {
+                console.error('generateDiagnostics failed', e);
+                showOverlay('診断エラー', String(e));
+            }
+        }
+        function showHost() {
+            try { destroyGame(); } catch (e) { /* ignore */ }
+            hostView.style.display = "block";
+            playView.style.display = "none";
+            routePill.textContent = "#host";
+            hideOverlay();
+        }
+        function showPlay(code) {
+            console.log('showPlay called with', code);
+            hostView.style.display = "none";
+            playView.style.display = "block";
+            routePill.textContent = "#" + code;
+            // show a visible loading placeholder while initializing
+            const gameDiv = document.getElementById('game');
+            if (gameDiv) {
+                gameDiv.innerHTML = '<div class="game-loading">ロード中…</div>';
+            }
+            // decode
+            const bits = [3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3];
+            let decoded;
+            try {
+                const { values, raw } = unpackFromCode(code, bits);
+                decoded = {
+                    tone: values[0],
+                    strength: values[1],
+                    state: values[2],
+                    relation: values[3],
+                    wA: values[4],
+                    wB: values[5],
+                    seg5: values.slice(6, 11),
+                    raw
+                };
+            } catch (e) {
+                showOverlay("エラー", "このURLのコードが不正みたい。\nホストに作り直してもらってね。");
+                revealBtn.style.display = "none";
+                closeBtn.style.display = "inline-block";
+                hostView.style.display = "";
+                playView.style.display = "none";
+                return;
+            }
+
+            let resultText;
+            try {
+                resultText = buildResultFromDecoded(decoded);
+            } catch (e) {
+                console.error(e);
+                showOverlay("エラー", "診断文の生成でエラーが発生しました: " + e.message);
+                revealBtn.style.display = "none";
+                closeBtn.style.display = "inline-block";
+                hostView.style.display = "";
+                playView.style.display = "none";
+                return;
+            }
+
+            try {
+                startGameWithDecoded(decoded, resultText);
+            } catch (e) {
+                console.error(e);
+                showOverlay("エラー", "ゲームの初期化でエラーが発生しました: " + e.message);
+                revealBtn.style.display = "none";
+                closeBtn.style.display = "inline-block";
+                hostView.style.display = "";
+                playView.style.display = "none";
+                return;
+            }
+        }
+
+        function route() {
+            try {
+                // Try hash first, then query params 'code' or 'c' as fallback
+                const rawHash = (location.hash || "").replace("#", "").trim();
+                const params = new URLSearchParams(location.search || "");
+                const paramCode = params.get('code') || params.get('c') || null;
+                console.log('route: href=', location.href, 'hash=', rawHash, 'search=', location.search, 'paramCode=', paramCode);
+
+                let h = rawHash;
+                if (!h && paramCode) h = String(paramCode).trim();
+
+                if (!h || h === "host") {
+                    showHost();
+                } else if (h.length === 6) {
+                    showPlay(h);
+                } else {
+                    // unknown hash/param -> host
+                    console.warn('route: unknown code, falling back to host. code=', h);
+                    showHost();
+                }
+            } catch (e) {
+                console.error(e);
+                showOverlay("エラー", "ルーティング中に予期せぬエラーが発生しました: " + e.message);
+                showHost();
+            }
+        }
+
+        window.addEventListener("error", (ev) => {
+            console.error("Global error:", ev.error || ev.message);
+            try { showOverlay("エラー", "予期せぬエラーが発生しました。詳しくはコンソールを確認してください。"); } catch (e) { /* ignore */ }
+            try { showHost(); } catch (e) { /* ignore */ }
+        });
+
+        window.addEventListener("hashchange", route);
+        route();
+    </script>
+</body>
+
+</html>
