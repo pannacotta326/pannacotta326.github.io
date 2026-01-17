@@ -314,6 +314,10 @@
             gap: 8px;
             max-height: 600px;
             overflow: auto;
+            touch-action: none; /* prevent scrolling during touch drags */
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-user-drag: none;
         }
 
         .bookshelf-game .init-col .book {
@@ -361,6 +365,7 @@
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.06);
             box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.3);
+            touch-action: none; /* ensure touch drags work */
         }
 
         .book {
@@ -372,6 +377,10 @@
             color: rgba(255, 255, 255, 0.9);
             font-weight: 700;
             user-select: none;
+            -webkit-user-drag: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-drag: none;
             touch-action: none;
             border: 1px solid rgba(255, 255, 255, 0.15);
             position: relative;
@@ -454,6 +463,28 @@
         .placement-hint {
             border-radius: 6px;
             box-sizing: border-box;
+        }
+
+        .rotate-error {
+            position: absolute;
+            left: 50%;
+            top: 8px;
+            transform: translateX(-50%) translateY(-8px);
+            background: rgba(255, 80, 80, 0.95);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .18s ease, transform .24s ease;
+            z-index: 10;
+            white-space: nowrap;
+        }
+        .rotate-error.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
 
         /* Overlay */
@@ -1412,6 +1443,24 @@
             hint.style.display = 'none';
             gridRoot.appendChild(hint);
 
+            // Rotate failure transient message
+            const rotateError = document.createElement('div');
+            rotateError.className = 'rotate-error';
+            rotateError.style.display = 'none';
+            rotateError.textContent = '';
+            gridRoot.appendChild(rotateError);
+            let rotateErrorTimer = null;
+            function showRotateError(msg, ms = 800) {
+                rotateError.textContent = msg;
+                rotateError.style.display = 'block';
+                requestAnimationFrame(() => rotateError.classList.add('show'));
+                if (rotateErrorTimer) { clearTimeout(rotateErrorTimer); rotateErrorTimer = null; }
+                rotateErrorTimer = setTimeout(() => {
+                    rotateError.classList.remove('show');
+                    setTimeout(() => { rotateError.style.display = 'none'; }, 220);
+                }, ms);
+            }
+
             // Helper functions
             function canPlaceAt(x, y, w, h, ignoreId = null) {
                 if (x < 0 || y < 0 || x + w > COLS || y + h > ROWS) return false;
@@ -1434,13 +1483,21 @@
                 el.style.position = 'relative';
                 el.style.cursor = 'grab';
 
-                let dragging = false;
-                let dragStarted = false;
+                    // Normalize client coordinates for Pointer/Mouse/Touch events
+                    function getClientXY(e) {
+                        if (!e) return { x: 0, y: 0 };
+                        if (typeof e.clientX !== 'undefined' && typeof e.clientY !== 'undefined') return { x: e.clientX, y: e.clientY };
+                        if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                        if (e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+                        return { x: 0, y: 0 };
+                    }
                 let startX = 0, startY = 0;
                 let offsetX = 0, offsetY = 0;
                 let originalParent = el.parentElement;
                 let placed = false;
                 let placeX = -1, placeY = -1;
+                let dragging = false;
+                let dragStarted = false;
                 const DRAG_THRESHOLD = 6;
 
                 function startDrag(e) {
@@ -1448,10 +1505,12 @@
                     dragging = true;
                     el.dataset.dragging = '1';
                     el.style.opacity = '0.3';
+                    console.log('startDrag', book && book.id ? book.id : el.dataset.id, 'placed=', placed);
 
                     const startRect = el.getBoundingClientRect();
-                    offsetX = e.clientX - startRect.left;
-                    offsetY = e.clientY - startRect.top;
+                    const p = getClientXY(e);
+                    offsetX = p.x - startRect.left;
+                    offsetY = p.y - startRect.top;
 
                     // if currently placed, free occupancy so it can move
                     if (el.dataset.placed === '1') {
@@ -1471,15 +1530,22 @@
                     el.style.left = startRect.left + 'px';
                     el.style.top = startRect.top + 'px';
 
-                    moveAt(e.clientX, e.clientY);
+                    // normalized coordinates
+                    moveAt(p.x, p.y);
                 }
 
                 function onPointerDown(e) {
                     e.preventDefault();
-                    el.setPointerCapture(e.pointerId);
+                    const p = getClientXY(e);
+                    console.log('onPointerDown', book && book.id ? book.id : el.dataset.id, 'type=', e.type, 'client=', Math.round(p.x), Math.round(p.y));
+                    // Guard for environments where pointerId or setPointerCapture may be unavailable
+                    if (typeof e.pointerId !== 'undefined' && el.setPointerCapture) {
+                        try { el.setPointerCapture(e.pointerId); } catch (err) { console.warn('setPointerCapture failed', err); }
+                    }
                     selectBook(el);
-                    startX = e.clientX;
-                    startY = e.clientY;
+                    // Use normalized coords
+                    startX = p.x;
+                    startY = p.y;
                     dragging = false;
                     dragStarted = false;
                     el.dataset.dragging = '0';
@@ -1487,6 +1553,11 @@
 
                     window.addEventListener('pointermove', onPointerMove);
                     window.addEventListener('pointerup', onPointerUp);
+                    // Fallback for older browsers or non-pointer events
+                    window.addEventListener('mousemove', onPointerMove);
+                    window.addEventListener('mouseup', onPointerUp);
+                    window.addEventListener('touchmove', onPointerMove, { passive: false });
+                    window.addEventListener('touchend', onPointerUp);
                 }
 
                 function moveAt(clientX, clientY) {
@@ -1538,23 +1609,33 @@
                 }
 
                 function onPointerMove(e) {
-                    const dx = e.clientX - startX;
-                    const dy = e.clientY - startY;
+                    // prevent touch scrolling while dragging
+                    if (e.type === 'touchmove') try { e.preventDefault(); } catch (err) { /* ignore */ }
+                    const p = getClientXY(e);
+                    const dx = p.x - startX;
+                    const dy = p.y - startY;
                     if (!dragStarted) {
                         if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+                        console.log('drag threshold exceeded, starting drag', book && book.id ? book.id : el.dataset.id, 'dx=', Math.round(dx), 'dy=', Math.round(dy));
                         startDrag(e);
                     }
                     if (!dragging) return;
-                    moveAt(e.clientX, e.clientY);
+                    moveAt(p.x, p.y);
                 }
 
                 function onPointerUp(e) {
                     dragging = false;
                     el.dataset.dragging = '0';
                     el.style.opacity = '';
-                    el.releasePointerCapture(e.pointerId);
+                    if (typeof e.pointerId !== 'undefined' && el.releasePointerCapture) {
+                        try { el.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+                    }
                     window.removeEventListener('pointermove', onPointerMove);
                     window.removeEventListener('pointerup', onPointerUp);
+                    window.removeEventListener('mousemove', onPointerMove);
+                    window.removeEventListener('mouseup', onPointerUp);
+                    window.removeEventListener('touchmove', onPointerMove);
+                    window.removeEventListener('touchend', onPointerUp);
 
                     updateRotateButtons();
 
@@ -1563,12 +1644,13 @@
                     }
 
                     const gridRect = gridRoot.getBoundingClientRect();
-                    const clientX = e.clientX, clientY = e.clientY;
+                    const p = getClientXY(e);
+                    console.log('onPointerUp', book && book.id ? book.id : el.dataset.id, 'client=', Math.round(p.x), Math.round(p.y));
                     const rot = Number(el.dataset.rot) || 0;
                     const w = (rot % 2 === 0) ? Number(el.dataset.w) : Number(el.dataset.h);
                     const h = (rot % 2 === 0) ? Number(el.dataset.h) : Number(el.dataset.w);
-                    const desiredLeft = clientX - offsetX;
-                    const desiredTop = clientY - offsetY;
+                    const desiredLeft = p.x - offsetX;
+                    const desiredTop = p.y - offsetY;
                     const gx = Math.floor((desiredLeft - gridRect.left) / CELL);
                     const gy = Math.floor((desiredTop - gridRect.top) / CELL);
                     const inside = desiredLeft >= gridRect.left
@@ -1610,7 +1692,12 @@
                     }
                 }
 
+                // Prevent native HTML5 dragstart which can interfere on some browsers (notably Chrome on macOS)
+                el.addEventListener('dragstart', (ev) => { ev.preventDefault(); });
                 el.addEventListener('pointerdown', onPointerDown);
+                // Fallbacks for environments where pointer events aren't emitted for down
+                el.addEventListener('mousedown', onPointerDown);
+                el.addEventListener('touchstart', onPointerDown, { passive: false });
             }
 
             function rotateSelected(direction) {
@@ -1643,6 +1730,7 @@
                     } else {
                         occupy(el.dataset.id, curX, curY, oldW, oldH);
                         el.animate([{ transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'translateX(0)' }], { duration: 180 });
+                        try { showRotateError('回転できるスペースがない！'); } catch (e) { /* ignore */ }
                     }
                 } else {
                     el.dataset.rot = String(rot);
@@ -1684,6 +1772,7 @@
                             occupy(el.dataset.id, curX, curY, oldW, oldH);
                             // show a small shake
                             el.animate([{ transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'translateX(0)' }], { duration: 180 });
+                            try { showRotateError('回転できるスペースがない！'); } catch (e) { /* ignore */ }
                         }
                     } else {
                         // when not placed, just toggle size
@@ -1766,7 +1855,7 @@
                         onDone: () => {
                             revealTimer = setTimeout(() => {
                                 revealBtn.classList.add('show');
-                            }, 10000);
+                            }, 7000);
                         }
                     });
                 });
